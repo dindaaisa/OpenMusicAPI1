@@ -4,9 +4,12 @@ const Hapi = require('@hapi/hapi');
 const ClientError = require('./exceptions/ClientError');
 
 const AlbumsPlugin = require('./api/albums');
-
 const AlbumsService = require('./api/albums/service');
 const AlbumsValidator = require('./api/albums/validator');
+
+const SongsPlugin = require('./api/songs');
+const SongsService = require('./api/songs/service');
+const SongsValidator = require('./api/songs/validator');
 
 const init = async () => {
   const server = Hapi.server({
@@ -19,6 +22,9 @@ const init = async () => {
   const albumsService = new AlbumsService();
   const albumsValidator = new AlbumsValidator();
 
+  const songsService = new SongsService();
+  const songsValidator = new SongsValidator();
+
   // register plugins with injected service & validator
   await server.register([
     {
@@ -28,7 +34,13 @@ const init = async () => {
         validator: albumsValidator,
       },
     },
-    // later: register Songs plugin similarly
+    {
+      plugin: SongsPlugin,
+      options: {
+        service: songsService,
+        validator: songsValidator,
+      },
+    },
   ]);
 
   // global error handler
