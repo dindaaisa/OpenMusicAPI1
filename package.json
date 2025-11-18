@@ -1,0 +1,29 @@
+{
+  "name": "proyek-openmusic-api-versi-1",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "migrate": "cross-env node-pg-migrate up",
+    "migrate:down": "cross-env node-pg-migrate down"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@hapi/hapi": "^21.4.4",
+    "auto-bind": "^5.0.1",
+    "dotenv": "^17.2.3",
+    "joi": "^18.0.1",
+    "nanoid": "^5.1.6",
+    "node-pg-migrate": "^8.0.3",
+    "pg": "^8.16.3"
+  },
+  "devDependencies": {
+    "cross-env": "^10.1.0",
+    "eslint": "^9.39.1",
+    "nodemon": "^3.1.11"
+  }
+}
