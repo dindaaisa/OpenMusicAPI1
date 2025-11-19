@@ -8,8 +8,8 @@ const albumPayloadSchema = Joi.object({
 const songPayloadSchema = Joi.object({
   title: Joi.string().required(),
   year: Joi.number().integer().required(),
-  genre: Joi.string().allow(null, ''),
   performer: Joi.string().required(),
+  genre: Joi.string().required(),
   duration: Joi.number().integer().optional().allow(null),
   albumId: Joi.string().optional().allow(null),
 });

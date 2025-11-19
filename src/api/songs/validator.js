@@ -1,10 +1,10 @@
-const Joi = require('joi');
+const { songPayloadSchema } = require('../../validator/schema');
 const ClientError = require('../../exceptions/ClientError');
-const { songPayloadSchema } = require('../../validator/schema.js');
 
 class SongsValidator {
   validateSongPayload(payload) {
-    const { error } = songPayloadSchema.validate(payload);
+    // Non-aktifkan conversion agar Joi tidak otomatis mengubah tipe (mis. 123 -> "123")
+    const { error } = songPayloadSchema.validate(payload, { convert: false });
     if (error) {
       throw new ClientError(error.message, 400);
     }

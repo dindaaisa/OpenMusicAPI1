@@ -23,16 +23,31 @@ class AlbumsService {
   }
 
   async getAlbumById(id) {
-    const query = {
+    // Query album
+    const albumQuery = {
       text: `SELECT id, name, year, created_at, updated_at
              FROM albums WHERE id = $1`,
       values: [id],
     };
-    const result = await pool.query(query);
-    if (!result.rows.length) {
+    const albumResult = await pool.query(albumQuery);
+
+    if (!albumResult.rows.length) {
       throw new ClientError('Album tidak ditemukan', 404);
     }
-    return result.rows[0];
+
+    const album = albumResult.rows[0];
+
+    // Query songs yang terkait album (jika ada)
+    const songsQuery = {
+      text: `SELECT id, title, performer FROM songs WHERE album_id = $1`,
+      values: [id],
+    };
+    const songsResult = await pool.query(songsQuery);
+
+    // Lampirkan properti songs (array, bisa kosong)
+    album.songs = songsResult.rows;
+
+    return album;
   }
 
   async editAlbumById(id, { name, year }) {
