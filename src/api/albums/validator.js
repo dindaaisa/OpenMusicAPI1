@@ -1,6 +1,5 @@
-// wrapper class that uses Joi schema
-const { albumPayloadSchema } = require('../../validator/schemas');
 const ClientError = require('../../exceptions/ClientError');
+const { albumPayloadSchema } = require('../../validator/schema');
 
 class AlbumsValidator {
   validateAlbumPayload(payload) {

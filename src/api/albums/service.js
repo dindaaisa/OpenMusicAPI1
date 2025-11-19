@@ -1,69 +1,54 @@
 const { nanoid } = require('nanoid');
-const pool = require('../../pool');
+const pool = require('../../validator/pool');
 const ClientError = require('../../exceptions/ClientError');
-const AlbumsHandler = require('./handler'); // to attach handler to service instance
 
 class AlbumsService {
-  constructor() {
-    this._pool = pool;
-
-    // create handler instance and attach to this service so routes can call it
-    this._handler = new AlbumsHandler(this, require('./validator')());
-  }
-
   async addAlbum({ name, year }) {
     const id = `album-${nanoid(16)}`;
     const query = {
-      text: 'INSERT INTO albums(id, name, year) VALUES($1, $2, $3) RETURNING id',
+      text: 'INSERT INTO albums (id, name, year) VALUES ($1, $2, $3) RETURNING id',
       values: [id, name, year],
     };
 
-    const result = await this._pool.query(query);
-    if (!result.rows[0]?.id) {
-      throw new Error('Failed to add album');
+    const result = await pool.query(query);
+    if (!result.rows[0]) {
+      throw new Error('Gagal menambahkan album');
     }
     return result.rows[0].id;
   }
 
+  async getAlbums() {
+    const result = await pool.query('SELECT id, name, year FROM albums');
+    return result.rows;
+  }
+
   async getAlbumById(id) {
     const query = {
-      text: 'SELECT id, name, year FROM albums WHERE id = $1',
+      text: `SELECT id, name, year, created_at, updated_at
+             FROM albums WHERE id = $1`,
       values: [id],
     };
-
-    const result = await this._pool.query(query);
+    const result = await pool.query(query);
     if (!result.rows.length) {
       throw new ClientError('Album tidak ditemukan', 404);
     }
-
-    const album = result.rows[0];
-
-    // optional: fetch songs in the album (for optional criterion)
-    const songsQuery = {
-      text: 'SELECT id, title, performer FROM songs WHERE album_id = $1',
-      values: [id],
-    };
-    const songsResult = await this._pool.query(songsQuery);
-    const songs = songsResult.rows;
-
-    return {
-      id: album.id,
-      name: album.name,
-      year: album.year,
-      songs,
-    };
+    return result.rows[0];
   }
 
   async editAlbumById(id, { name, year }) {
     const query = {
-      text: 'UPDATE albums SET name = $1, year = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3 RETURNING id',
+      text: `UPDATE albums
+             SET name = $1, year = $2, updated_at = current_timestamp
+             WHERE id = $3
+             RETURNING id`,
       values: [name, year, id],
     };
 
-    const result = await this._pool.query(query);
+    const result = await pool.query(query);
     if (!result.rows.length) {
       throw new ClientError('Gagal memperbarui album. Id tidak ditemukan', 404);
     }
+    return result.rows[0].id;
   }
 
   async deleteAlbumById(id) {
@@ -72,10 +57,11 @@ class AlbumsService {
       values: [id],
     };
 
-    const result = await this._pool.query(query);
+    const result = await pool.query(query);
     if (!result.rows.length) {
       throw new ClientError('Album gagal dihapus. Id tidak ditemukan', 404);
     }
+    return result.rows[0].id;
   }
 }
 
