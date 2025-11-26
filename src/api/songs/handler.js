@@ -3,7 +3,6 @@ class SongsHandler {
     this._service = service;
     this._validator = validator;
 
-    // manual binding methods (menghindari auto-bind dependency)
     this.postSongHandler = this.postSongHandler.bind(this);
     this.getSongsHandler = this.getSongsHandler.bind(this);
     this.getSongByIdHandler = this.getSongByIdHandler.bind(this);
@@ -29,7 +28,6 @@ class SongsHandler {
   }
 
   async getSongsHandler(request) {
-    // support optional query params: title, performer
     const { title, performer } = request.query;
     const songs = await this._service.getSongs({ title, performer });
     return {

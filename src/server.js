@@ -1,8 +1,10 @@
 require('dotenv').config();
 const Hapi = require('@hapi/hapi');
+const Jwt = require('jsonwebtoken');
 
 const ClientError = require('./exceptions/ClientError');
 
+// V1 plugins
 const AlbumsPlugin = require('./api/albums');
 const AlbumsService = require('./api/albums/service');
 const AlbumsValidator = require('./api/albums/validator');
@@ -11,11 +13,30 @@ const SongsPlugin = require('./api/songs');
 const SongsService = require('./api/songs/service');
 const SongsValidator = require('./api/songs/validator');
 
+// V2 plugins (skeletons)
+const UsersPlugin = require('./api/users');
+const UsersService = require('./api/users/service');
+const UsersValidator = require('./api/users/validator');
+
+const AuthenticationsPlugin = require('./api/authentications');
+const AuthenticationsService = require('./api/authentications/service');
+const AuthenticationsValidator = require('./api/authentications/validator');
+const TokenManager = require('./api/authentications/tokenManager');
+
+// note: you use folder name "playlist" in your repo
+const PlaylistsPlugin = require('./api/playlist');
+const PlaylistsService = require('./api/playlist/service');
+const PlaylistsValidator = require('./api/playlist/validator');
+
 const init = async () => {
   const server = Hapi.server({
     port: process.env.PORT || 5000,
     host: process.env.HOST || 'localhost',
-    routes: { cors: { origin: ['*'] } },
+    routes: {
+      cors: {
+        origin: ['*'],
+      },
+    },
   });
 
   // instantiate services & validators
@@ -25,7 +46,56 @@ const init = async () => {
   const songsService = new SongsService();
   const songsValidator = new SongsValidator();
 
-  // register plugins with injected service & validator
+  const usersService = new UsersService();
+  const usersValidator = new UsersValidator();
+
+  const authenticationsService = new AuthenticationsService();
+  const authenticationsValidator = new AuthenticationsValidator();
+  const tokenManager = TokenManager;
+
+  const playlistsService = new PlaylistsService();
+  const playlistsValidator = new PlaylistsValidator();
+
+  // Register auth scheme BEFORE registering plugins/routes
+  server.auth.scheme('openmusic_jwt', () => {
+    return {
+      authenticate: (request, h) => {
+        const authorization = request.headers.authorization;
+        // small log to help debug missing/invalid token during tests
+        console.log('[auth] Authorization header:', authorization);
+
+        if (!authorization) {
+          // Throw ClientError so onPreResponse will convert it to { status: 'fail', message } and statusCode 401
+          throw new ClientError('Missing authentication', 401);
+        }
+
+        const parts = authorization.split(' ');
+        if (parts.length !== 2 || parts[0] !== 'Bearer') {
+          throw new ClientError('Bad HTTP authentication header format', 401);
+        }
+
+        const accessToken = parts[1];
+
+        try {
+          const decoded = Jwt.verify(accessToken, process.env.ACCESS_TOKEN_KEY);
+          console.log('[auth] decoded token:', decoded);
+          const { userId } = decoded;
+          if (!userId) {
+            throw new ClientError('Invalid access token payload', 401);
+          }
+          // set credentials available for handlers
+          return h.authenticated({ credentials: { id: userId } });
+        } catch (err) {
+          console.log('[auth] token verify error:', err && err.message);
+          throw new ClientError('Invalid or expired access token', 401);
+        }
+      },
+    };
+  });
+
+  server.auth.strategy('openmusic_jwt', 'openmusic_jwt');
+
+  // register plugins (injecting services & validators)
   await server.register([
     {
       plugin: AlbumsPlugin,
@@ -41,9 +111,33 @@ const init = async () => {
         validator: songsValidator,
       },
     },
+    {
+      plugin: UsersPlugin,
+      options: {
+        service: usersService,
+        validator: usersValidator,
+      },
+    },
+    {
+      plugin: AuthenticationsPlugin,
+      options: {
+        authenticationsService,
+        usersService,
+        tokenManager,
+        validator: authenticationsValidator,
+      },
+    },
+    {
+      plugin: PlaylistsPlugin,
+      options: {
+        service: playlistsService,
+        validator: playlistsValidator,
+        songsService, // inject songsService so playlists can verify song existence
+      },
+    },
   ]);
 
-  // global error handler
+  // global error handler via onPreResponse
   server.ext('onPreResponse', (request, h) => {
     const { response } = request;
 
@@ -57,8 +151,8 @@ const init = async () => {
         return newResponse;
       }
 
+      // let Hapi handle non-server errors (404, etc.)
       if (!response.isServer) {
-        // let hapi handle (404, etc.)
         return h.continue;
       }
 
@@ -75,11 +169,12 @@ const init = async () => {
     return h.continue;
   });
 
-  // health route
+  // Health route (public)
   server.route({
     method: 'GET',
     path: '/',
-    handler: () => ({ status: 'success', message: 'OpenMusic API (v1) running' }),
+    options: { auth: false },
+    handler: () => ({ status: 'success', message: 'OpenMusic API running' }),
   });
 
   await server.start();
