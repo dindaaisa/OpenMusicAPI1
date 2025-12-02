@@ -24,7 +24,7 @@ exports.up = (pgm) => {
     updated_at: { type: 'timestamp', notNull: true, default: pgm.func('current_timestamp') },
   });
 
-  // add FK songs.album_id -> albums.id
+  // Foreign key to validate that album_id exists in albums table
   pgm.addConstraint('songs', 'fk_songs_album', {
     foreignKeys: {
       columns: 'album_id',

@@ -13,7 +13,7 @@ const SongsPlugin = require('./api/songs');
 const SongsService = require('./api/songs/service');
 const SongsValidator = require('./api/songs/validator');
 
-// V2 plugins (skeletons)
+// V2 plugins
 const UsersPlugin = require('./api/users');
 const UsersService = require('./api/users/service');
 const UsersValidator = require('./api/users/validator');
@@ -23,10 +23,19 @@ const AuthenticationsService = require('./api/authentications/service');
 const AuthenticationsValidator = require('./api/authentications/validator');
 const TokenManager = require('./api/authentications/tokenManager');
 
-// note: you use folder name "playlist" in your repo
+// Playlists (singular folder in your repo)
 const PlaylistsPlugin = require('./api/playlist');
 const PlaylistsService = require('./api/playlist/service');
 const PlaylistsValidator = require('./api/playlist/validator');
+
+// Collaborations
+const CollaborationsPlugin = require('./api/collaborations');
+const CollaborationsService = require('./api/collaborations/service');
+const CollaborationsValidator = require('./api/collaborations/validator');
+
+// Playlist activities
+const PlaylistActivitiesPlugin = require('./api/playlist/activities');
+const PlaylistActivitiesService = require('./api/playlist/activities/service');
 
 const init = async () => {
   const server = Hapi.server({
@@ -56,22 +65,26 @@ const init = async () => {
   const playlistsService = new PlaylistsService();
   const playlistsValidator = new PlaylistsValidator();
 
-  // Register auth scheme BEFORE registering plugins/routes
+  const collaborationsService = new CollaborationsService();
+  const collaborationsValidator = new CollaborationsValidator();
+
+  const playlistActivitiesService = new PlaylistActivitiesService();
+
+  // Register auth scheme BEFORE routes/plugins are registered
   server.auth.scheme('openmusic_jwt', () => {
     return {
       authenticate: (request, h) => {
         const authorization = request.headers.authorization;
-        // small log to help debug missing/invalid token during tests
+        // debug helpers
         console.log('[auth] Authorization header:', authorization);
 
         if (!authorization) {
-          // Throw ClientError so onPreResponse will convert it to { status: 'fail', message } and statusCode 401
           throw new ClientError('Missing authentication', 401);
         }
 
         const parts = authorization.split(' ');
         if (parts.length !== 2 || parts[0] !== 'Bearer') {
-          throw new ClientError('Bad HTTP authentication header format', 401);
+          throw new ClientError('Invalid authentication format', 401);
         }
 
         const accessToken = parts[1];
@@ -79,15 +92,13 @@ const init = async () => {
         try {
           const decoded = Jwt.verify(accessToken, process.env.ACCESS_TOKEN_KEY);
           console.log('[auth] decoded token:', decoded);
-          const { userId } = decoded;
-          if (!userId) {
+          if (!decoded || !decoded.userId) {
             throw new ClientError('Invalid access token payload', 401);
           }
-          // set credentials available for handlers
-          return h.authenticated({ credentials: { id: userId } });
+          return h.authenticated({ credentials: { id: decoded.userId } });
         } catch (err) {
           console.log('[auth] token verify error:', err && err.message);
-          throw new ClientError('Invalid or expired access token', 401);
+          throw new ClientError('Invalid or expired token', 401);
         }
       },
     };
@@ -135,6 +146,22 @@ const init = async () => {
         songsService, // inject songsService so playlists can verify song existence
       },
     },
+    {
+      plugin: CollaborationsPlugin,
+      options: {
+        collaborationsService,
+        playlistsService,
+        usersService,
+        validator: collaborationsValidator,
+      },
+    },
+    {
+      plugin: PlaylistActivitiesPlugin,
+      options: {
+        service: playlistActivitiesService,
+        playlistsService,
+      },
+    },
   ]);
 
   // global error handler via onPreResponse
@@ -151,12 +178,10 @@ const init = async () => {
         return newResponse;
       }
 
-      // let Hapi handle non-server errors (404, etc.)
       if (!response.isServer) {
         return h.continue;
       }
 
-      // server error
       const newResponse = h.response({
         status: 'error',
         message: 'Maaf, terjadi kegagalan pada server kami.',

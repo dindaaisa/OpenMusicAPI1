@@ -19,7 +19,7 @@ class TokenManager {
       const decoded = Jwt.verify(token, REFRESH_TOKEN_KEY);
       return decoded;
     } catch (err) {
-      // throw ClientError so onPreResponse returns 400 as required by tests
+      // lempar ClientError agar handler mengembalikan 400 (Bad Request) sesuai test spec
       throw new ClientError('Refresh token tidak valid', 400);
     }
   }
