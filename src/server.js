@@ -1,6 +1,7 @@
 require('dotenv').config();
 const Hapi = require('@hapi/hapi');
 const Jwt = require('jsonwebtoken');
+const Path = require('path');
 
 const ClientError = require('./exceptions/ClientError');
 
@@ -37,6 +38,11 @@ const CollaborationsValidator = require('./api/collaborations/validator');
 const PlaylistActivitiesPlugin = require('./api/playlist/activities');
 const PlaylistActivitiesService = require('./api/playlist/activities/service');
 
+// New album-related helpers (make sure these files exist)
+const AlbumLikesService = require('./api/albums/likesService'); // new
+const CoverHandler = require('./api/albums/coverHandler'); // new
+const LikesHandler = require('./api/albums/likesHandler'); // new
+
 const init = async () => {
   const server = Hapi.server({
     port: process.env.PORT || 5000,
@@ -46,6 +52,23 @@ const init = async () => {
         origin: ['*'],
       },
     },
+  });
+
+  // register inert to serve uploads static files
+  await server.register(require('@hapi/inert'));
+
+  // static route for uploads (serve files from ./uploads)
+  server.route({
+    method: 'GET',
+    path: '/uploads/{param*}',
+    handler: {
+      directory: {
+        path: Path.resolve(__dirname, 'uploads'),
+        redirectToSlash: false,
+        index: false,
+      },
+    },
+    options: { auth: false },
   });
 
   // instantiate services & validators
@@ -69,6 +92,11 @@ const init = async () => {
   const collaborationsValidator = new CollaborationsValidator();
 
   const playlistActivitiesService = new PlaylistActivitiesService();
+
+  // new album likes / handlers
+  const albumLikesService = new AlbumLikesService(); // ensure this file uses DB pool
+  const coverHandler = new CoverHandler({ albumService: albumsService });
+  const likesHandler = new LikesHandler({ albumLikesService: albumLikesService });
 
   // Register auth scheme BEFORE routes/plugins are registered
   server.auth.scheme('openmusic_jwt', () => {
@@ -113,6 +141,9 @@ const init = async () => {
       options: {
         service: albumsService,
         validator: albumsValidator,
+        albumLikesService, // pass likes service instance
+        coverHandler, // pass cover handler instance
+        likesHandler, // pass likes handler instance
       },
     },
     {
