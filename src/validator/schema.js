@@ -88,6 +88,14 @@ const playlistSongPayloadSchema = Joi.object({
   }),
 });
 
+// Export playlist schema untuk validasi targetEmail
+const exportPlaylistPayloadSchema = Joi.object({
+  targetEmail: Joi.string().email().required().messages({
+    'any.required': 'Email tujuan harus ada',
+    'string.email': 'Format email tujuan tidak valid',
+  }),
+});
+
 // Export the schemas
 module.exports = {
   albumPayloadSchema,
@@ -97,4 +105,5 @@ module.exports = {
   refreshTokenPayloadSchema,
   playlistPayloadSchema,
   playlistSongPayloadSchema,
+  exportPlaylistPayloadSchema,  // Pastikan ini sudah diexport
 };

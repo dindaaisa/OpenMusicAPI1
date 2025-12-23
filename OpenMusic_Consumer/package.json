@@ -1,0 +1,19 @@
+{
+  "name": "openmusic-consumer",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "node src/consumer.js",
+    "migrate:latest": "npx knex migrate:latest --knexfile knexfile.js",
+    "migrate:rollback": "npx knex migrate:rollback --knexfile knexfile.js"
+  },
+  "dependencies": {
+    "amqplib": "^0.10.9",
+    "nodemailer": "^7.0.11",
+    "openmusic-project": "file:..",
+    "pg": "^8.7.1"
+  },
+  "devDependencies": {
+    "eslint": "^9.39.2",
+    "nodemon": "^3.1.11"
+  }
+}

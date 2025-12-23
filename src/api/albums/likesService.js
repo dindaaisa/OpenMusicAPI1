@@ -1,5 +1,7 @@
 const { nanoid } = require('nanoid');
 const pool = require('../../validator/pool');
+const redis = require('redis');
+const redisClient = redis.createClient({ host: process.env.REDIS_SERVER });  // Koneksi Redis
 
 class AlbumLikesService {
   async addLike({ userId, albumId }) {
@@ -27,6 +29,9 @@ class AlbumLikesService {
       text: 'INSERT INTO user_album_likes (id, user_id, album_id) VALUES ($1, $2, $3)',
       values: [id, userId, albumId],
     });
+
+    // Hapus cache Redis setelah like ditambahkan
+    redisClient.del(`album:${albumId}:likes`);
   }
 
   async removeLike({ userId, albumId }) {
@@ -34,6 +39,9 @@ class AlbumLikesService {
       text: 'DELETE FROM user_album_likes WHERE user_id = $1 AND album_id = $2',
       values: [userId, albumId],
     });
+
+    // Hapus cache Redis setelah like dihapus
+    redisClient.del(`album:${albumId}:likes`);
   }
 
   async getLikesCount(albumId) {

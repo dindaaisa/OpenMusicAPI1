@@ -1,5 +1,3 @@
-const ClientError = require('../../exceptions/ClientError');
-
 class AuthenticationsHandler {
   constructor(authenticationsService, usersService, tokenManager, validator) {
     this._authenticationsService = authenticationsService;
@@ -13,7 +11,7 @@ class AuthenticationsHandler {
   }
 
   async postAuthenticationHandler(request, h) {
-    this._validator.validateAuthenticationPayload(request.payload);
+    this._validator.validatePostAuthenticationPayload(request.payload);
 
     const { username, password } = request.payload;
     const userId = await this._usersService.verifyUserCredential(username, password);
@@ -34,10 +32,10 @@ class AuthenticationsHandler {
     return response;
   }
 
-  async putAuthenticationHandler(request, h) {
-    this._validator.validateRefreshTokenPayload(request.payload);
-    const { refreshToken } = request.payload;
+  async putAuthenticationHandler(request) {
+    this._validator.validatePutAuthenticationPayload(request.payload);
 
+    const { refreshToken } = request.payload;
     await this._authenticationsService.verifyToken(refreshToken);
 
     const { userId } = this._tokenManager.verifyRefreshToken(refreshToken);
@@ -49,10 +47,10 @@ class AuthenticationsHandler {
     };
   }
 
-  async deleteAuthenticationHandler(request, h) {
-    this._validator.validateRefreshTokenPayload(request.payload);
-    const { refreshToken } = request.payload;
+  async deleteAuthenticationHandler(request) {
+    this._validator.validateDeleteAuthenticationPayload(request.payload);
 
+    const { refreshToken } = request.payload;
     await this._authenticationsService.verifyToken(refreshToken);
     await this._authenticationsService.deleteToken(refreshToken);
 

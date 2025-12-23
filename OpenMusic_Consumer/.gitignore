@@ -8,9 +8,6 @@ logs/
 # Environment files
 .env
 
-# Migrations folder (jika menggunakan knex atau sejenisnya)
-migrations/
-
 # Test coverage
 coverage/
 

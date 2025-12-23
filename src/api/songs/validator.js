@@ -1,5 +1,5 @@
-const { songPayloadSchema } = require('../../validator/schema');
-const ClientError = require('../../exceptions/ClientError');
+const { songPayloadSchema } = require('../../../../src/validator/schema');
+const ClientError = require('../../../exceptions/ClientError');
 
 class SongsValidator {
   validateSongPayload(payload) {

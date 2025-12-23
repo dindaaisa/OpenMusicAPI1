@@ -8,7 +8,7 @@ module.exports = {
       port: process.env.PGPORT || 5432,
       user: process.env.PGUSER || 'postgres',
       password: process.env.PGPASSWORD || '',
-      database: process.env.PGDATABASE || 'openmusic',
+      database: process.env.PGDATABASE || 'openmusic2',
     },
     migrations: {
       directory: './migrations',

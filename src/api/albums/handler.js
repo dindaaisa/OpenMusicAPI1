@@ -1,11 +1,8 @@
-const ClientError = require('../../exceptions/ClientError');
-
 class AlbumsHandler {
   constructor(service, validator) {
     this._service = service;
     this._validator = validator;
 
-    // bind handler methods if not using arrow routes
     this.postAlbumHandler = this.postAlbumHandler.bind(this);
     this.getAlbumByIdHandler = this.getAlbumByIdHandler.bind(this);
     this.putAlbumByIdHandler = this.putAlbumByIdHandler.bind(this);
@@ -26,23 +23,21 @@ class AlbumsHandler {
     return response;
   }
 
-  async getAlbumByIdHandler(request, h) {
+  async getAlbumByIdHandler(request) {
     const { id } = request.params;
     const album = await this._service.getAlbumById(id);
+
     return {
       status: 'success',
-      data: {
-        album,
-      },
+      data: { album },
     };
   }
 
-  async putAlbumByIdHandler(request, h) {
+  async putAlbumByIdHandler(request) {
     this._validator.validateAlbumPayload(request.payload);
     const { id } = request.params;
-    const { name, year } = request.payload;
 
-    await this._service.editAlbumById(id, { name, year });
+    await this._service.editAlbumById(id, request.payload);
 
     return {
       status: 'success',
@@ -50,9 +45,10 @@ class AlbumsHandler {
     };
   }
 
-  async deleteAlbumByIdHandler(request, h) {
+  async deleteAlbumByIdHandler(request) {
     const { id } = request.params;
     await this._service.deleteAlbumById(id);
+
     return {
       status: 'success',
       message: 'Album berhasil dihapus',

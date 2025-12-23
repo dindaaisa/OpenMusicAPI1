@@ -27,13 +27,9 @@ exports.up = async function (knex) {
       table.timestamp('updated_at').notNullable().defaultTo(knex.fn.now());
     });
 
-    // add FK songs.album_id -> albums.id
+    // Add FK songs.album_id -> albums.id
     await knex.schema.alterTable('songs', (table) => {
-      table
-        .foreign('album_id')
-        .references('id')
-        .inTable('albums')
-        .onDelete('CASCADE');
+      table.foreign('album_id').references('id').inTable('albums').onDelete('SET NULL');
     });
   }
 
@@ -54,7 +50,7 @@ exports.up = async function (knex) {
   if (!hasAuth) {
     await knex.schema.createTable('authentications', (table) => {
       table.string('id', 50).primary();
-      table.text('token').notNullable();
+      table.text('token').notNullable().unique();
       table.timestamp('created_at').notNullable().defaultTo(knex.fn.now());
     });
   }
@@ -70,11 +66,7 @@ exports.up = async function (knex) {
     });
 
     await knex.schema.alterTable('playlists', (table) => {
-      table
-        .foreign('owner')
-        .references('id')
-        .inTable('users')
-        .onDelete('CASCADE');
+      table.foreign('owner').references('id').inTable('users').onDelete('CASCADE');
     });
   }
 
@@ -89,16 +81,8 @@ exports.up = async function (knex) {
     });
 
     await knex.schema.alterTable('playlistsongs', (table) => {
-      table
-        .foreign('playlist_id')
-        .references('id')
-        .inTable('playlists')
-        .onDelete('CASCADE');
-      table
-        .foreign('song_id')
-        .references('id')
-        .inTable('songs')
-        .onDelete('CASCADE');
+      table.foreign('playlist_id').references('id').inTable('playlists').onDelete('CASCADE');
+      table.foreign('song_id').references('id').inTable('songs').onDelete('CASCADE');
     });
   }
 
@@ -113,16 +97,8 @@ exports.up = async function (knex) {
     });
 
     await knex.schema.alterTable('collaborations', (table) => {
-      table
-        .foreign('playlist_id')
-        .references('id')
-        .inTable('playlists')
-        .onDelete('CASCADE');
-      table
-        .foreign('user_id')
-        .references('id')
-        .inTable('users')
-        .onDelete('CASCADE');
+      table.foreign('playlist_id').references('id').inTable('playlists').onDelete('CASCADE');
+      table.foreign('user_id').references('id').inTable('users').onDelete('CASCADE');
     });
   }
 
@@ -139,27 +115,15 @@ exports.up = async function (knex) {
     });
 
     await knex.schema.alterTable('playlist_song_activities', (table) => {
-      table
-        .foreign('playlist_id')
-        .references('id')
-        .inTable('playlists')
-        .onDelete('CASCADE');
-      table
-        .foreign('song_id')
-        .references('id')
-        .inTable('songs')
-        .onDelete('CASCADE');
-      table
-        .foreign('user_id')
-        .references('id')
-        .inTable('users')
-        .onDelete('CASCADE');
+      table.foreign('playlist_id').references('id').inTable('playlists').onDelete('CASCADE');
+      table.foreign('song_id').references('id').inTable('songs').onDelete('CASCADE');
+      table.foreign('user_id').references('id').inTable('users').onDelete('CASCADE');
     });
   }
 };
 
 exports.down = async function (knex) {
-  // drop in reverse order (FK dependencies)
+  // Drop in reverse order (FK dependencies)
   if (await knex.schema.hasTable('playlist_song_activities')) {
     await knex.schema.dropTable('playlist_song_activities');
   }

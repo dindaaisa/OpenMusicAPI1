@@ -3,6 +3,7 @@ const pool = require('../../validator/pool');
 const ClientError = require('../../exceptions/ClientError');
 
 class PlaylistsService {
+  // Menambahkan playlist baru
   async addPlaylist({ name, owner }) {
     const id = `playlist-${nanoid(16)}`;
     const query = {
@@ -16,6 +17,7 @@ class PlaylistsService {
     return result.rows[0].id;
   }
 
+  // Mendapatkan playlist berdasarkan user (pemilik atau kolaborator)
   async getPlaylistsByUser(userId) {
     const query = {
       text: `
@@ -31,6 +33,7 @@ class PlaylistsService {
     return result.rows;
   }
 
+  // Verifikasi apakah user adalah pemilik playlist
   async verifyPlaylistOwner(playlistId, userId) {
     const query = {
       text: 'SELECT owner FROM playlists WHERE id = $1',
@@ -48,12 +51,15 @@ class PlaylistsService {
     return true;
   }
 
+  // Verifikasi apakah user memiliki akses ke playlist (pemilik atau kolaborator)
   async verifyPlaylistAccess(playlistId, userId) {
     try {
+      // Verifikasi pemilik playlist
       await this.verifyPlaylistOwner(playlistId, userId);
       return true;
     } catch (err) {
       if (err instanceof ClientError && err.statusCode === 403) {
+        // Jika bukan pemilik, cek apakah pengguna adalah kolaborator
         const query = {
           text: 'SELECT id FROM collaborations WHERE playlist_id = $1 AND user_id = $2',
           values: [playlistId, userId],
@@ -69,8 +75,9 @@ class PlaylistsService {
     }
   }
 
+  // Menambahkan lagu ke playlist
   async addSongToPlaylist(playlistId, songId, addedBy) {
-    // verify song exists
+    // Verifikasi apakah lagu ada
     const songExistsQuery = {
       text: 'SELECT id FROM songs WHERE id = $1',
       values: [songId],
@@ -90,7 +97,7 @@ class PlaylistsService {
       throw new ClientError('Gagal menambahkan lagu ke playlist', 500);
     }
 
-    // record activity (use addedBy)
+    // Mencatat aktivitas (use addedBy)
     try {
       const actId = `act-${nanoid(16)}`;
       const actQuery = {
@@ -101,12 +108,13 @@ class PlaylistsService {
       };
       await pool.query(actQuery);
     } catch (e) {
-      // ignore activity errors
+      // Abaikan error pada pencatatan aktivitas
     }
 
     return res.rows[0].id;
   }
 
+  // Mendapatkan playlist dengan lagu-lagunya
   async getPlaylistWithSongs(playlistId) {
     const playlistQuery = {
       text: `SELECT p.id, p.name, u.username
@@ -135,7 +143,7 @@ class PlaylistsService {
     return playlist;
   }
 
-  // modified to accept actedBy and record it in activity
+  // Menghapus lagu dari playlist
   async deleteSongFromPlaylist(playlistId, songId, actedBy) {
     const query = {
       text: 'DELETE FROM playlistsongs WHERE playlist_id = $1 AND song_id = $2 RETURNING id',
@@ -147,7 +155,7 @@ class PlaylistsService {
       throw new ClientError('Lagu tidak ditemukan dalam playlist', 404);
     }
 
-    // record activity with user who performed delete
+    // Mencatat aktivitas dengan user yang menghapus
     try {
       const actId = `act-${nanoid(16)}`;
       const actQuery = {
@@ -158,12 +166,13 @@ class PlaylistsService {
       };
       await pool.query(actQuery);
     } catch (e) {
-      // ignore
+      // Abaikan error pada pencatatan aktivitas
     }
 
     return result.rows[0].id;
   }
 
+  // Menghapus playlist berdasarkan ID
   async deletePlaylistById(playlistId) {
     const q = { text: 'DELETE FROM playlists WHERE id = $1 RETURNING id', values: [playlistId] };
     const res = await pool.query(q);
