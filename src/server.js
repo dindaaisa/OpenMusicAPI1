@@ -47,6 +47,7 @@ const init = async () => {
 
   await server.register(require('@hapi/inert'));
 
+  /* STATIC */
   server.route({
     method: 'GET',
     path: '/uploads/{param*}',
@@ -75,17 +76,12 @@ const init = async () => {
   server.auth.strategy('openmusic_jwt', 'openmusic_jwt');
   server.auth.default('openmusic_jwt');
 
-  /* INIT SERVICES */
+  /* SERVICES INIT */
   const cacheService = new CacheService();
   const albumsService = new AlbumsService();
   const albumLikesService = new AlbumLikesService(cacheService);
-
-  const usersService = new UsersService();
-  const authenticationsService = new AuthenticationsService();
-
   const collaborationsService = new CollaborationsService();
   const playlistsService = new PlaylistsService(collaborationsService);
-
   const producerService = new ProducerService(process.env.RABBITMQ_SERVER);
 
   /* REGISTER */
@@ -93,18 +89,14 @@ const init = async () => {
     {
       plugin: AuthenticationsPlugin,
       options: {
-        authenticationsService,
-        usersService,
+        service: new AuthenticationsService(),
         tokenManager: TokenManager,
         validator: new AuthenticationsValidator(),
       },
     },
     {
       plugin: UsersPlugin,
-      options: {
-        service: usersService,
-        validator: new UsersValidator(),
-      },
+      options: { service: new UsersService(), validator: new UsersValidator() },
     },
     {
       plugin: AlbumsPlugin,
@@ -117,10 +109,7 @@ const init = async () => {
     },
     {
       plugin: SongsPlugin,
-      options: {
-        service: new SongsService(),
-        validator: new SongsValidator(),
-      },
+      options: { service: new SongsService(), validator: new SongsValidator() },
     },
     {
       plugin: CollaborationsPlugin,
@@ -150,18 +139,19 @@ const init = async () => {
     const { response } = request;
 
     if (response instanceof ClientError) {
-      return h.response({
-        status: 'fail',
-        message: response.message,
-      }).code(response.statusCode);
+      return h
+        .response({ status: 'fail', message: response.message })
+        .code(response.statusCode);
     }
 
     if (response.isBoom) {
-      const statusCode = response.output.statusCode;
-      return h.response({
-        status: statusCode < 500 ? 'fail' : 'error',
-        message: response.output.payload.message,
-      }).code(statusCode);
+      const code = response.output.statusCode;
+      return h
+        .response({
+          status: code < 500 ? 'fail' : 'error',
+          message: response.output.payload.message || 'Server error',
+        })
+        .code(code);
     }
 
     return h.continue;

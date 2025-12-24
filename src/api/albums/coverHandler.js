@@ -10,11 +10,20 @@ class CoverHandler {
 
   async postCoverHandler(request, h) {
     const { id: albumId } = request.params;
+
+    // Verify album exists first
+    await this._albumService.verifyAlbumExists(albumId);
+
     const file = request.payload.cover;
 
     // Pastikan file ada di payload
-    if (!file || !file.hapi) {
+    if (!file) {
       return h.response({ status: 'fail', message: 'File cover tidak ditemukan' }).code(400);
+    }
+
+    // Check if file is a stream with hapi metadata
+    if (!file.hapi) {
+      return h.response({ status: 'fail', message: 'Format file tidak valid' }).code(400);
     }
 
     const headers = file.hapi.headers || {};
@@ -39,7 +48,8 @@ class CoverHandler {
     const writeStream = fs.createWriteStream(filePath);
     await new Promise((resolve, reject) => {
       file.pipe(writeStream);
-      file.on('end', resolve);
+      writeStream.on('finish', resolve);
+      writeStream.on('error', reject);
       file.on('error', reject);
     });
 
