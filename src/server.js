@@ -69,8 +69,12 @@ const init = async () => {
       const [type, token] = auth.split(' ');
       if (type !== 'Bearer') throw new ClientError('Invalid auth format', 401);
 
-      const decoded = Jwt.verify(token, process.env.ACCESS_TOKEN_KEY);
-      return h.authenticated({ credentials: { id: decoded.userId } });
+      try {
+        const decoded = Jwt.verify(token, process.env.ACCESS_TOKEN_KEY);
+        return h.authenticated({ credentials: { id: decoded.userId } });
+      } catch (error) {
+        throw new ClientError('Invalid token', 401);
+      }
     },
   }));
 
