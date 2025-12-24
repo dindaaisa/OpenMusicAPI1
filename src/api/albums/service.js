@@ -1,3 +1,7 @@
+const { nanoid } = require('nanoid');
+const pool = require('../../validator/pool');
+const ClientError = require('../../exceptions/ClientError');
+
 class AlbumsService {
   async addAlbum({ name, year }) {
     const id = `album-${nanoid(16)}`;
@@ -34,7 +38,7 @@ class AlbumsService {
       id: album.id,
       name: album.name,
       year: album.year,
-      coverUrl: album.cover_url,
+      coverUrl: album.cover_url || null,
       songs: songsResult.rows,
     };
   }
@@ -62,13 +66,24 @@ class AlbumsService {
   }
 
   async updateCoverUrl(id, coverUrl) {
+    // Cek album exists
+    const checkResult = await pool.query(
+      'SELECT id FROM albums WHERE id = $1',
+      [id]
+    );
+
+    if (!checkResult.rowCount) {
+      throw new ClientError('Album tidak ditemukan', 404);
+    }
+
+    // Update cover URL
     const result = await pool.query(
       'UPDATE albums SET cover_url = $1 WHERE id = $2 RETURNING id',
       [coverUrl, id]
     );
 
     if (!result.rowCount) {
-      throw new ClientError('Album tidak ditemukan', 404);
+      throw new ClientError('Gagal mengupdate cover album', 500);
     }
   }
 }

@@ -1,10 +1,11 @@
+const ExportsHandler = require('./handler');
 const routes = require('./routes');
-const Handler = require('./handler');
 
 module.exports = {
-    name: 'exports',
-    register: async (server, { service, playlistsService, validator }) => {
-      const handler = new Handler(service, validator, playlistsService);
-      server.route(routes(handler));
-    },
-  };
+  name: 'exports',
+  version: '1.0.0',
+  register: async (server, { producerService, playlistsService, validator }) => {
+    const handler = new ExportsHandler(producerService, playlistsService, validator);
+    server.route(routes(handler));
+  },
+};

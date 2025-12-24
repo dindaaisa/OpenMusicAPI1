@@ -8,7 +8,8 @@ class ProducerService {
 
   async init() {
     if (!this._connection) {
-      this._connection = await amqp.connect(process.env.RABBITMQ_SERVER);
+      const rabbitMQServer = process.env.RABBITMQ_SERVER || 'amqp://localhost:5672';
+      this._connection = await amqp.connect(rabbitMQServer);
       this._channel = await this._connection.createChannel();
     }
   }

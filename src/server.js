@@ -4,7 +4,9 @@ const Jwt = require('jsonwebtoken');
 const Path = require('path');
 const ClientError = require('./exceptions/ClientError');
 
-/* PLUGINS */
+/* =======================
+   PLUGINS
+======================= */
 const AlbumsPlugin = require('./api/albums');
 const SongsPlugin = require('./api/songs');
 const UsersPlugin = require('./api/users');
@@ -13,7 +15,9 @@ const PlaylistsPlugin = require('./api/playlist');
 const CollaborationsPlugin = require('./api/collaborations');
 const ExportsPlugin = require('./api/exports');
 
-/* SERVICES */
+/* =======================
+   SERVICES
+======================= */
 const AlbumsService = require('./api/albums/service');
 const SongsService = require('./api/songs/service');
 const UsersService = require('./api/users/service');
@@ -22,8 +26,11 @@ const PlaylistsService = require('./api/playlist/service');
 const CollaborationsService = require('./api/collaborations/service');
 const ProducerService = require('./services/rabbitmq/ProducerService');
 const CacheService = require('./services/cacheService');
+const AlbumLikesService = require('./api/albums/likesService');
 
-/* VALIDATORS */
+/* =======================
+   VALIDATORS
+======================= */
 const AlbumsValidator = require('./api/albums/validator');
 const SongsValidator = require('./api/songs/validator');
 const UsersValidator = require('./api/users/validator');
@@ -32,89 +39,144 @@ const PlaylistsValidator = require('./api/playlist/validator');
 const CollaborationsValidator = require('./api/collaborations/validator');
 const ExportsValidator = require('./api/exports/validator');
 
-/* OTHERS */
+/* =======================
+   HANDLERS
+======================= */
 const TokenManager = require('./api/authentications/tokenManager');
 const CoverHandler = require('./api/albums/coverHandler');
-const AlbumLikesService = require('./api/albums/likesService');
 const LikesHandler = require('./api/albums/likesHandler');
 
 const init = async () => {
   const server = Hapi.server({
     port: process.env.PORT || 5000,
     host: process.env.HOST || 'localhost',
-    routes: { cors: { origin: ['*'] } },
+    routes: { 
+      cors: { origin: ['*'] },
+      payload: {
+        maxBytes: 512000, // 512KB default
+      }
+    },
   });
 
+  /* =======================
+     REGISTER INERT (Static Files)
+  ======================= */
   await server.register(require('@hapi/inert'));
 
-  /* STATIC */
+  /* =======================
+     STATIC FILES ROUTE
+  ======================= */
   server.route({
     method: 'GET',
     path: '/uploads/{param*}',
     handler: {
       directory: {
         path: Path.resolve(__dirname, 'uploads'),
+        index: false,
       },
     },
     options: { auth: false },
   });
 
-  /* JWT */
+  /* =======================
+     JWT AUTH SCHEME
+  ======================= */
   server.auth.scheme('openmusic_jwt', () => ({
     authenticate: (request, h) => {
-      const auth = request.headers.authorization;
-      if (!auth) throw new ClientError('Missing authentication', 401);
+      const authorization = request.headers.authorization;
+      if (!authorization) {
+        throw new ClientError('Missing authentication', 401);
+      }
 
-      const [type, token] = auth.split(' ');
-      if (type !== 'Bearer') throw new ClientError('Invalid auth format', 401);
+      const [type, token] = authorization.split(' ');
+      if (type !== 'Bearer') {
+        throw new ClientError('Invalid auth format', 401);
+      }
 
-      const decoded = Jwt.verify(token, process.env.ACCESS_TOKEN_KEY);
-      return h.authenticated({ credentials: { id: decoded.userId } });
+      try {
+        const decoded = Jwt.verify(token, process.env.ACCESS_TOKEN_KEY);
+        return h.authenticated({
+          credentials: { id: decoded.userId },
+        });
+      } catch (error) {
+        throw new ClientError('Invalid token', 401);
+      }
     },
   }));
 
   server.auth.strategy('openmusic_jwt', 'openmusic_jwt');
-  server.auth.default('openmusic_jwt');
 
-  /* SERVICES INIT */
+  /* =======================
+     INITIALIZE SERVICES
+  ======================= */
+  console.log('🔧 Initializing services...');
   const cacheService = new CacheService();
   const albumsService = new AlbumsService();
-  const albumLikesService = new AlbumLikesService(cacheService);
+  const albumLikesService = new AlbumLikesService();
+  const songsService = new SongsService();
+  const usersService = new UsersService();
+  const authenticationsService = new AuthenticationsService();
   const collaborationsService = new CollaborationsService();
   const playlistsService = new PlaylistsService(collaborationsService);
-  const producerService = new ProducerService(process.env.RABBITMQ_SERVER);
+  const producerService = new ProducerService();
+  console.log('✅ Services initialized');
 
-  /* REGISTER */
+  /* =======================
+     INITIALIZE HANDLERS
+  ======================= */
+  console.log('🔧 Initializing handlers...');
+  const coverHandler = new CoverHandler({ albumService: albumsService });
+  const likesHandler = new LikesHandler({ 
+    albumLikesService, 
+    cacheService 
+  });
+  console.log('✅ Handlers initialized');
+
+  /* =======================
+     REGISTER PLUGINS
+  ======================= */
+  console.log('🔧 Registering plugins...');
   await server.register([
+    // Users & Authentication
     {
-      plugin: AuthenticationsPlugin,
-      options: {
-        service: new AuthenticationsService(),
-        tokenManager: TokenManager,
-        validator: AuthenticationsValidator,
+      plugin: UsersPlugin,
+      options: { 
+        service: usersService, 
+        validator: new UsersValidator() 
       },
     },
     {
-      plugin: UsersPlugin,
-      options: { service: new UsersService(), validator: new UsersValidator() },
+      plugin: AuthenticationsPlugin,
+      options: {
+        authenticationsService,
+        usersService,
+        tokenManager: TokenManager,
+        validator: new AuthenticationsValidator(),
+      },
     },
+    // Albums & Songs
     {
       plugin: AlbumsPlugin,
       options: {
         service: albumsService,
         validator: new AlbumsValidator(),
-        coverHandler: new CoverHandler({ albumService: albumsService }),
-        likesHandler: new LikesHandler({ albumLikesService, cacheService }),
+        coverHandler,
+        likesHandler,
       },
     },
     {
       plugin: SongsPlugin,
-      options: { service: new SongsService(), validator: new SongsValidator() },
+      options: { 
+        service: songsService, 
+        validator: new SongsValidator() 
+      },
     },
+    // Collaborations & Playlists
     {
       plugin: CollaborationsPlugin,
       options: {
-        service: collaborationsService,
+        collaborationsService,
+        playlistsService,
         validator: new CollaborationsValidator(),
       },
     },
@@ -125,57 +187,77 @@ const init = async () => {
         validator: new PlaylistsValidator(),
       },
     },
+    // Exports
     {
       plugin: ExportsPlugin,
       options: {
-        service: producerService,
+        producerService,
+        playlistsService,
         validator: new ExportsValidator(),
       },
     },
   ]);
+  console.log('✅ Plugins registered');
 
-  /* ERROR HANDLER */
+  /* =======================
+     GLOBAL ERROR HANDLER
+  ======================= */
   server.ext('onPreResponse', (request, h) => {
     const { response } = request;
 
     if (response instanceof ClientError) {
-      return h
-        .response({ status: 'fail', message: response.message })
-        .code(response.statusCode);
+      return h.response({
+        status: 'fail',
+        message: response.message,
+      }).code(response.statusCode);
     }
 
     if (response.isBoom) {
-<<<<<<< HEAD
-      const code = response.output.statusCode;
-      return h
-        .response({
-          status: code < 500 ? 'fail' : 'error',
-          message: response.output.payload.message || 'Server error',
-        })
-        .code(code);
-=======
-      const statusCode = response.output.statusCode;
+      const { statusCode } = response.output;
       
-      // Handle payload too large (413)
+      // Handle payload too large
       if (statusCode === 413) {
         return h.response({
           status: 'fail',
-          message: response.output.payload.message || 'Payload content length greater than maximum allowed',
+          message: 'Payload content length greater than maximum allowed: 512000',
         }).code(413);
       }
-      
+
+      // Handle unauthorized
+      if (statusCode === 401) {
+        return h.response({
+          status: 'fail',
+          message: response.message || 'Unauthorized',
+        }).code(401);
+      }
+
+      // Client errors (4xx)
+      if (statusCode >= 400 && statusCode < 500) {
+        return h.response({
+          status: 'fail',
+          message: response.output.payload.message || response.message,
+        }).code(statusCode);
+      }
+
+      // Server errors (5xx)
+      console.error(response);
       return h.response({
-        status: statusCode < 500 ? 'fail' : 'error',
-        message: response.output.payload.message,
-      }).code(statusCode);
->>>>>>> 1e6f467b8538de56e786d3c59dac5bfe88a1a855
+        status: 'error',
+        message: 'Terjadi kegagalan pada server kami',
+      }).code(500);
     }
 
     return h.continue;
   });
 
+  /* =======================
+     START SERVER
+  ======================= */
   await server.start();
-  console.log(`Server berjalan di ${server.info.uri}`);
+  console.log(`✅ Server berjalan di ${server.info.uri}`);
 };
 
-init();
+init().catch((err) => {
+  console.error('❌ Server failed to start:', err);
+  process.exit(1);
+});

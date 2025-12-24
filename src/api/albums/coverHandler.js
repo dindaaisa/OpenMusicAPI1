@@ -14,42 +14,56 @@ class CoverHandler {
 
     // Pastikan file ada di payload
     if (!file || !file.hapi) {
-      return h.response({ status: 'fail', message: 'File cover tidak ditemukan' }).code(400);
+      return h.response({ 
+        status: 'fail', 
+        message: 'File cover tidak ditemukan' 
+      }).code(400);
     }
 
-    // Check if file is a stream with hapi metadata
-    if (!file.hapi) {
-      return h.response({ status: 'fail', message: 'Format file tidak valid' }).code(400);
-    }
-
-    const headers = cover.hapi.headers || {};
+    const headers = file.hapi.headers || {};
     const contentType = headers['content-type'] || '';
-    const allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    const allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/jpg'];
 
     // Validasi tipe file gambar
     if (!allowed.includes(contentType)) {
-      return h.response({ status: 'fail', message: 'Tipe file bukan gambar' }).code(400);
+      return h.response({ 
+        status: 'fail', 
+        message: 'Tipe file bukan gambar' 
+      }).code(400);
+    }
+
+    // Validasi ukuran file (max 512KB)
+    const fileSize = file.hapi.headers['content-length'];
+    if (fileSize && parseInt(fileSize) > 512000) {
+      return h.response({
+        status: 'fail',
+        message: 'Ukuran file terlalu besar. Maksimal 512KB'
+      }).code(413);
     }
 
     // Tentukan path direktori upload
     const uploadsDir = path.resolve(__dirname, '..', '..', 'uploads');
-    if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+    if (!fs.existsSync(uploadsDir)) {
+      fs.mkdirSync(uploadsDir, { recursive: true });
+    }
 
     // Tentukan ekstensi dan nama file
-    const ext = path.extname(cover.hapi.filename) || '.jpg';
+    const ext = path.extname(file.hapi.filename) || '.jpg';
     const filename = `cover-${uuidv4()}${ext}`;
     const filePath = path.join(uploadsDir, filename);
 
     // Simpan file
     const writeStream = fs.createWriteStream(filePath);
+    
     await new Promise((resolve, reject) => {
       file.pipe(writeStream);
-      file.on('end', resolve);
+      writeStream.on('finish', resolve);
+      writeStream.on('error', reject);
       file.on('error', reject);
     });
 
     // Bangun URL untuk mengakses gambar cover
-    const base = process.env.APP_BASE_URL ? process.env.APP_BASE_URL.replace(/\/$/, '') : '';
+    const base = process.env.APP_BASE_URL ? process.env.APP_BASE_URL.replace(/\/$/, '') : 'http://localhost:5000';
     const coverUrl = `${base}/uploads/${filename}`;
 
     // Update album dengan URL cover baru
@@ -58,7 +72,6 @@ class CoverHandler {
     return h.response({
       status: 'success',
       message: 'Sampul berhasil diunggah',
-      data: { coverUrl }
     }).code(201);
   }
 }

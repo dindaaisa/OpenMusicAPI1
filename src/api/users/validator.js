@@ -3,7 +3,7 @@ const { userPayloadSchema } = require('../../validator/schema');
 
 class UsersValidator {
   validateUserPayload(payload) {
-    const { error } = userPayloadSchema.validate(payload, { convert: false });
+    const { error } = userPayloadSchema.validate(payload);
     if (error) {
       throw new ClientError(error.message, 400);
     }
