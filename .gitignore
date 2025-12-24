@@ -11,6 +11,9 @@ logs/
 # Migrations folder (jika menggunakan knex atau sejenisnya)
 migrations/
 
+# Uploaded files
+src/uploads/
+
 # Test coverage
 coverage/
 
