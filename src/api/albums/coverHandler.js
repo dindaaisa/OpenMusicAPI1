@@ -32,15 +32,6 @@ class CoverHandler {
       }).code(400);
     }
 
-    // Validasi ukuran file (max 512KB)
-    const fileSize = file.hapi.headers['content-length'];
-    if (fileSize && parseInt(fileSize) > 512000) {
-      return h.response({
-        status: 'fail',
-        message: 'Ukuran file terlalu besar. Maksimal 512KB'
-      }).code(413);
-    }
-
     // Tentukan path direktori upload
     const uploadsDir = path.resolve(__dirname, '..', '..', 'uploads');
     if (!fs.existsSync(uploadsDir)) {
