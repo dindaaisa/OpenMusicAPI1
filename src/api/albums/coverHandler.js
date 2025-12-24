@@ -13,7 +13,7 @@ class CoverHandler {
     const { cover } = request.payload;
 
     // Pastikan file ada di payload
-    if (!cover) {
+    if (!cover || !cover.hapi) {
       return h.response({ 
         status: 'fail', 
         message: 'File cover tidak ditemukan' 
@@ -22,7 +22,7 @@ class CoverHandler {
 
     // Get file metadata
     const file = cover;
-    const headers = file.hapi ? file.hapi.headers : {};
+    const headers = file.hapi.headers || {};
     const contentType = headers['content-type'] || '';
     const allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/jpg'];
 
@@ -41,7 +41,7 @@ class CoverHandler {
     }
 
     // Tentukan ekstensi dan nama file
-    const filename = file.hapi && file.hapi.filename ? file.hapi.filename : 'cover.jpg';
+    const filename = file.hapi.filename || 'cover.jpg';
     const ext = path.extname(filename) || '.jpg';
     const newFilename = `cover-${uuidv4()}${ext}`;
     const filePath = path.join(uploadsDir, newFilename);
