@@ -10,14 +10,10 @@ class CoverHandler {
 
   async postCoverHandler(request, h) {
     const { id: albumId } = request.params;
-
-    // Verify album exists first
-    await this._albumService.verifyAlbumExists(albumId);
-
     const file = request.payload.cover;
 
     // Pastikan file ada di payload
-    if (!file) {
+    if (!file || !file.hapi) {
       return h.response({ status: 'fail', message: 'File cover tidak ditemukan' }).code(400);
     }
 
@@ -26,7 +22,7 @@ class CoverHandler {
       return h.response({ status: 'fail', message: 'Format file tidak valid' }).code(400);
     }
 
-    const headers = file.hapi.headers || {};
+    const headers = cover.hapi.headers || {};
     const contentType = headers['content-type'] || '';
     const allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
 
@@ -40,7 +36,7 @@ class CoverHandler {
     if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 
     // Tentukan ekstensi dan nama file
-    const ext = path.extname(file.hapi.filename) || '.jpg';
+    const ext = path.extname(cover.hapi.filename) || '.jpg';
     const filename = `cover-${uuidv4()}${ext}`;
     const filePath = path.join(uploadsDir, filename);
 
@@ -48,8 +44,7 @@ class CoverHandler {
     const writeStream = fs.createWriteStream(filePath);
     await new Promise((resolve, reject) => {
       file.pipe(writeStream);
-      writeStream.on('finish', resolve);
-      writeStream.on('error', reject);
+      file.on('end', resolve);
       file.on('error', reject);
     });
 

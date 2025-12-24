@@ -91,7 +91,7 @@ const init = async () => {
       options: {
         service: new AuthenticationsService(),
         tokenManager: TokenManager,
-        validator: new AuthenticationsValidator(),
+        validator: AuthenticationsValidator,
       },
     },
     {
@@ -145,6 +145,7 @@ const init = async () => {
     }
 
     if (response.isBoom) {
+<<<<<<< HEAD
       const code = response.output.statusCode;
       return h
         .response({
@@ -152,6 +153,22 @@ const init = async () => {
           message: response.output.payload.message || 'Server error',
         })
         .code(code);
+=======
+      const statusCode = response.output.statusCode;
+      
+      // Handle payload too large (413)
+      if (statusCode === 413) {
+        return h.response({
+          status: 'fail',
+          message: response.output.payload.message || 'Payload content length greater than maximum allowed',
+        }).code(413);
+      }
+      
+      return h.response({
+        status: statusCode < 500 ? 'fail' : 'error',
+        message: response.output.payload.message,
+      }).code(statusCode);
+>>>>>>> 1e6f467b8538de56e786d3c59dac5bfe88a1a855
     }
 
     return h.continue;
