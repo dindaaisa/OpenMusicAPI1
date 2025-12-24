@@ -10,17 +10,19 @@ class CoverHandler {
 
   async postCoverHandler(request, h) {
     const { id: albumId } = request.params;
-    const file = request.payload.cover;
+    const { cover } = request.payload;
 
     // Pastikan file ada di payload
-    if (!file || !file.hapi) {
+    if (!cover) {
       return h.response({ 
         status: 'fail', 
         message: 'File cover tidak ditemukan' 
       }).code(400);
     }
 
-    const headers = file.hapi.headers || {};
+    // Get file metadata
+    const file = cover;
+    const headers = file.hapi ? file.hapi.headers : {};
     const contentType = headers['content-type'] || '';
     const allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/jpg'];
 
@@ -32,15 +34,6 @@ class CoverHandler {
       }).code(400);
     }
 
-    // Validasi ukuran file (max 512KB)
-    const fileSize = file.hapi.headers['content-length'];
-    if (fileSize && parseInt(fileSize) > 512000) {
-      return h.response({
-        status: 'fail',
-        message: 'Ukuran file terlalu besar. Maksimal 512KB'
-      }).code(413);
-    }
-
     // Tentukan path direktori upload
     const uploadsDir = path.resolve(__dirname, '..', '..', 'uploads');
     if (!fs.existsSync(uploadsDir)) {
@@ -48,9 +41,10 @@ class CoverHandler {
     }
 
     // Tentukan ekstensi dan nama file
-    const ext = path.extname(file.hapi.filename) || '.jpg';
-    const filename = `cover-${uuidv4()}${ext}`;
-    const filePath = path.join(uploadsDir, filename);
+    const filename = file.hapi && file.hapi.filename ? file.hapi.filename : 'cover.jpg';
+    const ext = path.extname(filename) || '.jpg';
+    const newFilename = `cover-${uuidv4()}${ext}`;
+    const filePath = path.join(uploadsDir, newFilename);
 
     // Simpan file
     const writeStream = fs.createWriteStream(filePath);
@@ -64,7 +58,7 @@ class CoverHandler {
 
     // Bangun URL untuk mengakses gambar cover
     const base = process.env.APP_BASE_URL ? process.env.APP_BASE_URL.replace(/\/$/, '') : 'http://localhost:5000';
-    const coverUrl = `${base}/uploads/${filename}`;
+    const coverUrl = `${base}/uploads/${newFilename}`;
 
     // Update album dengan URL cover baru
     await this._albumService.updateCoverUrl(albumId, coverUrl);
