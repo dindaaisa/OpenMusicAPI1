@@ -34,13 +34,19 @@ class AlbumsService {
     );
 
     const album = albumResult.rows[0];
-    return {
+    const result = {
       id: album.id,
       name: album.name,
       year: album.year,
-      coverUrl: album.cover_url,
       songs: songsResult.rows,
     };
+    
+    // Only include coverUrl if it exists
+    if (album.cover_url) {
+      result.coverUrl = album.cover_url;
+    }
+    
+    return result;
   }
 
   async editAlbumById(id, { name, year }) {
