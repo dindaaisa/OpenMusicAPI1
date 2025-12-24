@@ -20,9 +20,8 @@ class CoverHandler {
       }).code(400);
     }
 
-    // Get file metadata
-    const file = cover;
-    const headers = file.hapi.headers || {};
+    // Extract file metadata
+    const headers = cover.hapi.headers || {};
     const contentType = headers['content-type'] || '';
     const allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/jpg'];
 
@@ -41,7 +40,7 @@ class CoverHandler {
     }
 
     // Tentukan ekstensi dan nama file
-    const filename = file.hapi.filename || 'cover.jpg';
+    const filename = cover.hapi.filename || 'cover.jpg';
     const ext = path.extname(filename) || '.jpg';
     const newFilename = `cover-${uuidv4()}${ext}`;
     const filePath = path.join(uploadsDir, newFilename);
@@ -50,10 +49,10 @@ class CoverHandler {
     const writeStream = fs.createWriteStream(filePath);
     
     await new Promise((resolve, reject) => {
-      file.pipe(writeStream);
+      cover.pipe(writeStream);
       writeStream.on('finish', resolve);
       writeStream.on('error', reject);
-      file.on('error', reject);
+      cover.on('error', reject);
     });
 
     // Bangun URL untuk mengakses gambar cover
