@@ -33,6 +33,21 @@ class PlaylistsService {
     return result.rows;
   }
 
+  // Mendapatkan playlist berdasarkan ID
+  async getPlaylistById(playlistId) {
+    const query = {
+      text: 'SELECT * FROM playlists WHERE id = $1',
+      values: [playlistId],
+    };
+    const result = await pool.query(query);
+    
+    if (!result.rows.length) {
+      throw new ClientError('Playlist tidak ditemukan', 404);
+    }
+    
+    return result.rows[0];
+  }
+
   // Verifikasi apakah user adalah pemilik playlist
   async verifyPlaylistOwner(playlistId, userId) {
     const query = {
