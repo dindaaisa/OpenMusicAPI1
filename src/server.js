@@ -10,6 +10,7 @@ const SongsPlugin = require('./api/songs');
 const UsersPlugin = require('./api/users');
 const AuthenticationsPlugin = require('./api/authentications');
 const PlaylistsPlugin = require('./api/playlist');
+const PlaylistActivitiesPlugin = require('./api/playlist/activities');
 const CollaborationsPlugin = require('./api/collaborations');
 const ExportsPlugin = require('./api/exports');
 
@@ -19,6 +20,7 @@ const SongsService = require('./api/songs/service');
 const UsersService = require('./api/users/service');
 const AuthenticationsService = require('./api/authentications/service');
 const PlaylistsService = require('./api/playlist/service');
+const PlaylistActivitiesService = require('./api/playlist/activities/service');
 const CollaborationsService = require('./api/collaborations/service');
 const ProducerService = require('./services/rabbitmq/ProducerService');
 const CacheService = require('./services/cacheService');
@@ -67,8 +69,12 @@ const init = async () => {
       const [type, token] = auth.split(' ');
       if (type !== 'Bearer') throw new ClientError('Invalid auth format', 401);
 
-      const decoded = Jwt.verify(token, process.env.ACCESS_TOKEN_KEY);
-      return h.authenticated({ credentials: { id: decoded.userId } });
+      try {
+        const decoded = Jwt.verify(token, process.env.ACCESS_TOKEN_KEY);
+        return h.authenticated({ credentials: { id: decoded.userId } });
+      } catch (error) {
+        throw new ClientError('Invalid token', 401);
+      }
     },
   }));
 
@@ -85,6 +91,8 @@ const init = async () => {
 
   const collaborationsService = new CollaborationsService();
   const playlistsService = new PlaylistsService(collaborationsService);
+  const playlistActivitiesService = new PlaylistActivitiesService();
+  const songsService = new SongsService();
 
   const producerService = new ProducerService(process.env.RABBITMQ_SERVER);
 
@@ -126,6 +134,8 @@ const init = async () => {
       plugin: CollaborationsPlugin,
       options: {
         service: collaborationsService,
+        playlistsService,
+        usersService,
         validator: new CollaborationsValidator(),
       },
     },
@@ -133,13 +143,22 @@ const init = async () => {
       plugin: PlaylistsPlugin,
       options: {
         service: playlistsService,
+        songsService,
         validator: new PlaylistsValidator(),
+      },
+    },
+    {
+      plugin: PlaylistActivitiesPlugin,
+      options: {
+        service: playlistActivitiesService,
+        playlistsService,
       },
     },
     {
       plugin: ExportsPlugin,
       options: {
         service: producerService,
+        playlistsService,
         validator: new ExportsValidator(),
       },
     },

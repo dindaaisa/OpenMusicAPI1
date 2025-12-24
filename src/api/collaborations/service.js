@@ -27,7 +27,7 @@ class CollaborationsService {
     };
     const res = await pool.query(q);
     if (!res.rows.length) {
-      throw new Error('Gagal menambahkan kolaborasi');
+      throw new ClientError('Gagal menambahkan kolaborasi', 500);
     }
     return res.rows[0].id;
   }

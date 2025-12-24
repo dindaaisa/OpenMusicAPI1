@@ -1,5 +1,4 @@
 const ClientError = require('../../exceptions/ClientError');
-const RabbitMQProducer = require('../../producer/rabbitmqProducer'); // Mengimpor RabbitMQProducer
 
 class PlaylistsHandler {
   constructor(service, validator, songsService) {
@@ -14,7 +13,6 @@ class PlaylistsHandler {
     this.getPlaylistSongsHandler = this.getPlaylistSongsHandler.bind(this);
     this.deletePlaylistSongHandler = this.deletePlaylistSongHandler.bind(this);
     this.deletePlaylistByIdHandler = this.deletePlaylistByIdHandler.bind(this);
-    this.exportPlaylistHandler = this.exportPlaylistHandler.bind(this);  // Bind handler untuk ekspor playlist
   }
 
   // Mendapatkan ID pengguna yang terautentikasi dari JWT
@@ -25,42 +23,6 @@ class PlaylistsHandler {
     }
     return auth.id;
   }
-
-  // Handler untuk ekspor playlist
-  async exportPlaylistHandler(request, h) {
-    const { playlistId } = request.params;  // Mengambil playlistId dari parameter
-    const { targetEmail } = request.payload;  // Mengambil targetEmail dari body request
-
-    // Cek apakah targetEmail disediakan
-    if (!targetEmail) {
-      throw new ClientError('targetEmail harus disediakan', 400);
-    }
-
-    // Ambil playlist dari database
-    const playlist = await this._service.getPlaylistById(playlistId);
-
-    if (!playlist) {
-      throw new ClientError('Playlist tidak ditemukan', 404);
-    }
-
-    // Cek apakah pengguna yang mengirim permintaan adalah pemilik playlist
-    if (playlist.owner !== request.auth.credentials.id) {
-      throw new ClientError('Hanya pemilik playlist yang dapat mengekspor', 403);
-    }
-
-    // Kirim payload (playlistId dan targetEmail) ke RabbitMQProducer
-    const payload = { playlistId, targetEmail };
-    await RabbitMQProducer.send(payload);
-
-    const response = h.response({
-      status: 'success',
-      message: 'Permintaan Anda sedang kami proses',
-    });
-    response.code(201);
-    return response;
-  }
-
-  // Handler lainnya tetap sama, tidak ada perubahan
   async postPlaylistHandler(request, h) {
     this._validator.validatePlaylistPayload(request.payload);
     const { name } = request.payload;
