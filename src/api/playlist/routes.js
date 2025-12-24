@@ -35,13 +35,6 @@ const routes = (handler) => [
     handler: handler.deletePlaylistByIdHandler,
     options: { auth: 'openmusic_jwt' },
   },
-  // Rute baru untuk ekspor playlist
-  {
-    method: 'POST',
-    path: '/export/playlists/{playlistId}',
-    handler: handler.exportPlaylistHandler,  // Handler untuk ekspor playlist
-    options: { auth: 'openmusic_jwt' },
-  },
 ];
 
 module.exports = routes;

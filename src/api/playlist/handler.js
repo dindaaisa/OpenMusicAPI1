@@ -1,5 +1,5 @@
 const ClientError = require('../../exceptions/ClientError');
-const RabbitMQProducer = require('../producer/rabbitmqProducer'); // Mengimpor RabbitMQProducer
+const RabbitMQProducer = require('../../producer/rabbitmqProducer'); // Mengimpor RabbitMQProducer
 
 class PlaylistsHandler {
   constructor(service, validator, songsService) {

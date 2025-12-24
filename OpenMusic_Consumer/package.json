@@ -1,19 +1,19 @@
 {
   "name": "openmusic-consumer",
   "version": "1.0.0",
+  "description": "OpenMusic API V3 Consumer",
+  "main": "src/consumer/rabbitmqConsumer.js",
   "scripts": {
-    "start": "node src/consumer.js",
-    "migrate:latest": "npx knex migrate:latest --knexfile knexfile.js",
-    "migrate:rollback": "npx knex migrate:rollback --knexfile knexfile.js"
+    "start": "node src/consumer/rabbitmqConsumer.js",
+    "start-dev": "nodemon src/consumer/rabbitmqConsumer.js"
   },
   "dependencies": {
-    "amqplib": "^0.10.9",
-    "nodemailer": "^7.0.11",
-    "openmusic-project": "file:..",
+    "amqplib": "^0.10.0",
+    "dotenv": "^17.2.3",
+    "nodemailer": "^6.9.15",
     "pg": "^8.7.1"
   },
   "devDependencies": {
-    "eslint": "^9.39.2",
-    "nodemon": "^3.1.11"
+    "nodemon": "^3.1.7"
   }
 }

@@ -1,27 +1,27 @@
 const { nanoid } = require('nanoid');
 const pool = require('../../validator/pool');
-const redis = require('redis');
-const redisClient = redis.createClient({ host: process.env.REDIS_SERVER });  // Koneksi Redis
+const ClientError = require('../../exceptions/ClientError');
 
 class AlbumLikesService {
   async addLike({ userId, albumId }) {
-    // pastikan album ada
-    const albumRes = await pool.query({ text: 'SELECT id FROM albums WHERE id = $1', values: [albumId] });
+    // Pastikan album ada
+    const albumRes = await pool.query({
+      text: 'SELECT id FROM albums WHERE id = $1',
+      values: [albumId],
+    });
+    
     if (albumRes.rowCount === 0) {
-      const err = new Error('Album tidak ditemukan');
-      err.statusCode = 404;
-      throw err;
+      throw new ClientError('Album tidak ditemukan', 404);
     }
 
-    // cek sudah like?
+    // Cek sudah like?
     const exists = await pool.query({
       text: 'SELECT id FROM user_album_likes WHERE user_id = $1 AND album_id = $2',
       values: [userId, albumId],
     });
+    
     if (exists.rowCount > 0) {
-      const err = new Error('Anda sudah menyukai album ini');
-      err.statusCode = 400;
-      throw err;
+      throw new ClientError('Anda sudah menyukai album ini', 400);
     }
 
     const id = `like-${nanoid(16)}`;
@@ -29,19 +29,17 @@ class AlbumLikesService {
       text: 'INSERT INTO user_album_likes (id, user_id, album_id) VALUES ($1, $2, $3)',
       values: [id, userId, albumId],
     });
-
-    // Hapus cache Redis setelah like ditambahkan
-    redisClient.del(`album:${albumId}:likes`);
   }
 
   async removeLike({ userId, albumId }) {
-    await pool.query({
-      text: 'DELETE FROM user_album_likes WHERE user_id = $1 AND album_id = $2',
+    const result = await pool.query({
+      text: 'DELETE FROM user_album_likes WHERE user_id = $1 AND album_id = $2 RETURNING id',
       values: [userId, albumId],
     });
 
-    // Hapus cache Redis setelah like dihapus
-    redisClient.del(`album:${albumId}:likes`);
+    if (result.rowCount === 0) {
+      throw new ClientError('Like tidak ditemukan', 404);
+    }
   }
 
   async getLikesCount(albumId) {

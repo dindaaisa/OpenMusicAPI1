@@ -2,22 +2,34 @@
   "name": "openmusic-project",
   "version": "1.0.0",
   "scripts": {
-    "start": "npm run start --prefix OpenMusic_API_V3",
-    "migrate:latest": "npx knex migrate:latest --knexfile knexfile.js",
-    "migrate:rollback": "npx knex migrate:rollback --knexfile knexfile.js",
-    "start:consumer": "npm run start --prefix OpenMusic_Consumer",
-    "migrate:consumer": "npx knex migrate:latest --knexfile OpenMusic_Consumer/knexfile.js"
+    "start": "node src/server.js",
+    "migrate:latest": "node-pg-migrate up ",
+    "migrate:rollback": "node-pg-migrate down ",
+    "start-consumer": "node OpenMusic_Consumer/src/consumer/rabbitmqConsumer.js"
   },
   "dependencies": {
-    "amqplib": "^0.10.9",
+    "@hapi/hapi": "^21.4.4",
+    "@hapi/inert": "^7.1.0",
+    "amqplib": "^0.10.0",
+    "bcrypt": "^6.0.0",
+    "bcryptjs": "^3.0.3",
     "dotenv": "^17.2.3",
-    "hapi": "^18.1.0",
-    "knex": "^0.95.14",
-    "nodemailer": "^7.0.11",
-    "pg": "^8.7.1"
+    "hapi": "^18.0.0",
+    "joi": "^18.0.2",
+    "jsonwebtoken": "^9.0.3",
+    "knex": "^0.95.0",
+    "nanoid": "^5.1.6",
+    "node-pg-migrate": "^8.0.4",
+    "nodemailer": "^7.0.1",
+    "pg": "^8.7.1",
+    "redis": "^5.10.0",
+    "redis-server": "^1.2.2",
+    "uuid": "^13.0.0"
   },
   "devDependencies": {
-    "eslint": "^9.39.2",
-    "nodemon": "^3.1.11"
+    "@types/redis": "^4.0.10",
+    "cross-env": "^7.0.3",
+    "eslint": "^8.0.0",
+    "nodemon": "^2.0.15"
   }
 }

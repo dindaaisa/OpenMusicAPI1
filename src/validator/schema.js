@@ -1,102 +1,64 @@
 const Joi = require('joi');
 
+/**
+ * ALBUM
+ */
 const albumPayloadSchema = Joi.object({
-  name: Joi.string().required().messages({
-    'any.required': 'Nama album harus ada',
-    'string.base': 'Nama album harus berupa teks',
-  }),
-  year: Joi.number().integer().required().messages({
-    'any.required': 'Tahun perilisan album harus ada',
-    'number.base': 'Tahun perilisan harus berupa angka',
-    'number.integer': 'Tahun perilisan harus berupa bilangan bulat',
-  }),
-});
+  name: Joi.string().required(),
+  year: Joi.number().integer().required(),
+}).options({ allowUnknown: false });
 
+/**
+ * SONG
+ */
 const songPayloadSchema = Joi.object({
-  title: Joi.string().required().messages({
-    'any.required': 'Judul lagu harus ada',
-    'string.base': 'Judul lagu harus berupa teks',
-  }),
-  year: Joi.number().integer().required().messages({
-    'any.required': 'Tahun perilisan lagu harus ada',
-    'number.base': 'Tahun perilisan harus berupa angka',
-    'number.integer': 'Tahun perilisan harus berupa bilangan bulat',
-  }),
-  performer: Joi.string().required().messages({
-    'any.required': 'Nama artis atau performer harus ada',
-    'string.base': 'Nama performer harus berupa teks',
-  }),
-  genre: Joi.string().required().messages({
-    'any.required': 'Genre lagu harus ada',
-    'string.base': 'Genre harus berupa teks',
-  }),
-  duration: Joi.number().integer().optional().allow(null).messages({
-    'number.base': 'Durasi lagu harus berupa angka',
-    'number.integer': 'Durasi lagu harus berupa bilangan bulat',
-  }),
-  albumId: Joi.string().optional().allow(null).messages({
-    'string.base': 'ID album harus berupa teks',
-  }),
-});
+  title: Joi.string().required(),
+  year: Joi.number().integer().required(),
+  performer: Joi.string().required(),
+  genre: Joi.string().required(),
+  duration: Joi.number().integer().optional().allow(null),
+  albumId: Joi.string().optional().allow(null),
+}).options({ allowUnknown: false });
 
-// User & Auth schemas (V2)
+/**
+ * USER
+ */
 const userPayloadSchema = Joi.object({
-  username: Joi.string().required().messages({
-    'any.required': 'Username harus ada',
-    'string.base': 'Username harus berupa teks',
-  }),
-  password: Joi.string().required().messages({
-    'any.required': 'Password harus ada',
-    'string.base': 'Password harus berupa teks',
-  }),
-  fullname: Joi.string().required().messages({
-    'any.required': 'Nama lengkap harus ada',
-    'string.base': 'Nama lengkap harus berupa teks',
-  }),
-});
+  username: Joi.string().required(),
+  password: Joi.string().required(),
+  fullname: Joi.string().required(),
+}).options({ allowUnknown: false });
 
+/**
+ * AUTHENTICATION
+ */
 const authenticationPayloadSchema = Joi.object({
-  username: Joi.string().required().messages({
-    'any.required': 'Username harus ada',
-    'string.base': 'Username harus berupa teks',
-  }),
-  password: Joi.string().required().messages({
-    'any.required': 'Password harus ada',
-    'string.base': 'Password harus berupa teks',
-  }),
-});
+  username: Joi.string().required(),
+  password: Joi.string().required(),
+}).options({ allowUnknown: false });
 
 const refreshTokenPayloadSchema = Joi.object({
-  refreshToken: Joi.string().required().messages({
-    'any.required': 'Refresh token harus ada',
-    'string.base': 'Refresh token harus berupa teks',
-  }),
-});
+  refreshToken: Joi.string().required(),
+}).options({ allowUnknown: false });
 
-// Playlists
+/**
+ * PLAYLIST
+ */
 const playlistPayloadSchema = Joi.object({
-  name: Joi.string().required().messages({
-    'any.required': 'Nama playlist harus ada',
-    'string.base': 'Nama playlist harus berupa teks',
-  }),
-});
+  name: Joi.string().required(),
+}).options({ allowUnknown: false });
 
 const playlistSongPayloadSchema = Joi.object({
-  songId: Joi.string().required().messages({
-    'any.required': 'ID lagu harus ada',
-    'string.base': 'ID lagu harus berupa teks',
-  }),
-});
+  songId: Joi.string().required(),
+}).options({ allowUnknown: false });
 
-// Export playlist schema untuk validasi targetEmail
+/**
+ * EXPORT PLAYLIST
+ */
 const exportPlaylistPayloadSchema = Joi.object({
-  targetEmail: Joi.string().email().required().messages({
-    'any.required': 'Email tujuan harus ada',
-    'string.email': 'Format email tujuan tidak valid',
-  }),
-});
+  targetEmail: Joi.string().email().required(),
+}).options({ allowUnknown: false });
 
-// Export the schemas
 module.exports = {
   albumPayloadSchema,
   songPayloadSchema,
@@ -105,5 +67,5 @@ module.exports = {
   refreshTokenPayloadSchema,
   playlistPayloadSchema,
   playlistSongPayloadSchema,
-  exportPlaylistPayloadSchema,  // Pastikan ini sudah diexport
+  exportPlaylistPayloadSchema,
 };

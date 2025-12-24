@@ -11,6 +11,8 @@ class CoverHandler {
   async postCoverHandler(request, h) {
     const { id: albumId } = request.params;
     const file = request.payload.cover;
+
+    // Pastikan file ada di payload
     if (!file || !file.hapi) {
       return h.response({ status: 'fail', message: 'File cover tidak ditemukan' }).code(400);
     }
@@ -18,18 +20,22 @@ class CoverHandler {
     const headers = file.hapi.headers || {};
     const contentType = headers['content-type'] || '';
     const allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+
+    // Validasi tipe file gambar
     if (!allowed.includes(contentType)) {
       return h.response({ status: 'fail', message: 'Tipe file bukan gambar' }).code(400);
     }
 
+    // Tentukan path direktori upload
     const uploadsDir = path.resolve(__dirname, '..', '..', 'uploads');
     if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
 
+    // Tentukan ekstensi dan nama file
     const ext = path.extname(file.hapi.filename) || '.jpg';
     const filename = `cover-${uuidv4()}${ext}`;
     const filePath = path.join(uploadsDir, filename);
 
-    // save
+    // Simpan file
     const writeStream = fs.createWriteStream(filePath);
     await new Promise((resolve, reject) => {
       file.pipe(writeStream);
@@ -37,13 +43,18 @@ class CoverHandler {
       file.on('error', reject);
     });
 
-    // build URL (sesuaikan APP_BASE_URL di .env)
+    // Bangun URL untuk mengakses gambar cover
     const base = process.env.APP_BASE_URL ? process.env.APP_BASE_URL.replace(/\/$/, '') : '';
     const coverUrl = `${base}/uploads/${filename}`;
 
+    // Update album dengan URL cover baru
     await this._albumService.updateCoverUrl(albumId, coverUrl);
 
-    return h.response({ status: 'success', message: 'Sampul berhasil diunggah', data: { coverUrl } }).code(201);
+    return h.response({
+      status: 'success',
+      message: 'Sampul berhasil diunggah',
+      data: { coverUrl }
+    }).code(201);
   }
 }
 

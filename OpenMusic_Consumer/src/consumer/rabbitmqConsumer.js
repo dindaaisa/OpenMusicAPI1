@@ -1,76 +1,55 @@
+require('dotenv').config();
 const amqp = require('amqplib');
-const nodemailer = require('nodemailer');
-const PlaylistService = require('../services/PlaylistService'); // Menggunakan PlaylistService untuk mengambil data playlist dari database
 
-class RabbitMQConsumer {
-  constructor() {
-    this._conn = null;
-    this._ch = null;
-    this._queue = process.env.EXPORT_QUEUE_NAME || 'export_playlists'; // Nama queue sesuai dengan variabel lingkungan
-  }
+const MailSender = require('./MailSender');
+const PlaylistService = require('../services/PlaylistService');
 
-  // Koneksi ke RabbitMQ
-  async connect(url) {
-    if (this._ch) return;  // Jangan buat koneksi baru jika channel sudah ada
-    this._conn = await amqp.connect(url);
-    this._ch = await this._conn.createChannel();
-    await this._ch.assertQueue(this._queue, { durable: true });
-    console.log('RabbitMQConsumer connected to', url);
-  }
+const QUEUE = 'export:playlists';
 
-  // Mengkonsumsi pesan dari RabbitMQ
-  async consume() {
-    await this._ch.consume(this._queue, async (msg) => {
-      const { playlistId, targetEmail } = JSON.parse(msg.content.toString());
+const init = async () => {
+  const rabbitUrl = process.env.RABBITMQ_SERVER;
+  if (!rabbitUrl) throw new Error('RABBITMQ_SERVER env is missing');
 
-      // Ambil playlist dari database menggunakan PlaylistService
-      const playlist = await PlaylistService.getPlaylistById(playlistId);
+  const connection = await amqp.connect(rabbitUrl);
+  const channel = await connection.createChannel();
 
-      if (!playlist) {
-        console.log(`Playlist dengan ID ${playlistId} tidak ditemukan.`);
-        this._ch.ack(msg); // Acknowledge meskipun playlist tidak ditemukan
-        return;
-      }
+  await channel.assertQueue(QUEUE, { durable: true });
 
-      // Kirimkan playlist via email menggunakan Nodemailer
-      await this.sendEmail(targetEmail, playlist);
+  const mailSender = new MailSender();
+  const playlistService = new PlaylistService();
 
-      // Acknowledge pesan setelah diproses
-      this._ch.ack(msg);
-    });
-  }
+  console.log(`✅ RabbitMQConsumer connected to ${rabbitUrl}`);
+  console.log(`📥 Waiting messages on queue "${QUEUE}"...`);
 
-  // Mengirimkan email dengan Nodemailer
-  async sendEmail(targetEmail, playlist) {
-    const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
-      port: process.env.SMTP_PORT,
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASSWORD
-      }
-    });
-
-    const mailOptions = {
-      from: process.env.SMTP_USER,
-      to: targetEmail,
-      subject: `Ekspor Playlist: ${playlist.name}`,
-      text: JSON.stringify(playlist, null, 2) // Mengirimkan playlist dalam format JSON
-    };
+  channel.consume(QUEUE, async (msg) => {
+    if (!msg) return;
 
     try {
-      await transporter.sendMail(mailOptions);
-      console.log(`Email berhasil dikirim ke ${targetEmail}`);
-    } catch (error) {
-      console.error('Error saat mengirim email:', error);
+      const payload = JSON.parse(msg.content.toString());
+      const { playlistId, targetEmail } = payload;
+
+      const playlist = await playlistService.getPlaylistWithSongs(playlistId);
+
+      const jsonExport = JSON.stringify(
+        { playlist: { id: playlist.id, name: playlist.name, songs: playlist.songs } },
+        null,
+        2
+      );
+
+      await mailSender.sendEmail(
+        targetEmail,
+        `Export Playlist: ${playlist.name}`,
+        jsonExport
+      );
+
+      channel.ack(msg);
+      console.log(`📧 Export sent to ${targetEmail}`);
+    } catch (err) {
+      // supaya message tidak nyangkut terus2an, kita drop (no requeue)
+      console.error('❌ Export failed:', err.message);
+      channel.nack(msg, false, false);
     }
-  }
+  });
+};
 
-  // Menutup koneksi ke RabbitMQ
-  async close() {
-    if (this._ch) await this._ch.close();
-    if (this._conn) await this._conn.close();
-  }
-}
-
-module.exports = new RabbitMQConsumer();
+init();

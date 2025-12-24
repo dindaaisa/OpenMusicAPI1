@@ -1,28 +1,24 @@
 const Jwt = require('jsonwebtoken');
 const ClientError = require('../../exceptions/ClientError');
 
-const ACCESS_TOKEN_KEY = process.env.ACCESS_TOKEN_KEY || 'access';
-const REFRESH_TOKEN_KEY = process.env.REFRESH_TOKEN_KEY || 'refresh';
-const ACCESS_TOKEN_AGE = process.env.ACCESS_TOKEN_AGE || '1800s'; // 30 minutes default
-
-class TokenManager {
+const TokenManager = {
   generateAccessToken(payload) {
-    return Jwt.sign(payload, ACCESS_TOKEN_KEY, { expiresIn: ACCESS_TOKEN_AGE });
-  }
+    return Jwt.sign(payload, process.env.ACCESS_TOKEN_KEY);
+  },
 
   generateRefreshToken(payload) {
-    return Jwt.sign(payload, REFRESH_TOKEN_KEY);
-  }
+    return Jwt.sign(payload, process.env.REFRESH_TOKEN_KEY);
+  },
 
-  verifyRefreshToken(token) {
+  verifyRefreshToken(refreshToken) {
     try {
-      const decoded = Jwt.verify(token, REFRESH_TOKEN_KEY);
+      const decoded = Jwt.verify(refreshToken, process.env.REFRESH_TOKEN_KEY);
       return decoded;
-    } catch (err) {
-      // lempar ClientError agar handler mengembalikan 400 (Bad Request) sesuai test spec
+    } catch (error) {
+      // Test biasanya minta 400 kalau refresh token invalid
       throw new ClientError('Refresh token tidak valid', 400);
     }
-  }
-}
+  },
+};
 
-module.exports = new TokenManager();
+module.exports = TokenManager;

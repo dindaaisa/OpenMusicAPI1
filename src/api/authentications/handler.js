@@ -14,29 +14,30 @@ class AuthenticationsHandler {
     this._validator.validatePostAuthenticationPayload(request.payload);
 
     const { username, password } = request.payload;
-    const userId = await this._usersService.verifyUserCredential(username, password);
 
-    const accessToken = this._tokenManager.generateAccessToken({ userId });
-    const refreshToken = this._tokenManager.generateRefreshToken({ userId });
+    // usersService harus punya method ini (standar OpenMusic)
+    const id = await this._usersService.verifyUserCredential(username, password);
 
-    await this._authenticationsService.addToken(refreshToken);
+    const accessToken = this._tokenManager.generateAccessToken({ userId: id });
+    const refreshToken = this._tokenManager.generateRefreshToken({ userId: id });
 
-    const response = h.response({
+    await this._authenticationsService.addRefreshToken(refreshToken);
+
+    return h.response({
       status: 'success',
       data: {
         accessToken,
         refreshToken,
       },
-    });
-    response.code(201);
-    return response;
+    }).code(201);
   }
 
   async putAuthenticationHandler(request) {
     this._validator.validatePutAuthenticationPayload(request.payload);
 
     const { refreshToken } = request.payload;
-    await this._authenticationsService.verifyToken(refreshToken);
+
+    await this._authenticationsService.verifyRefreshToken(refreshToken);
 
     const { userId } = this._tokenManager.verifyRefreshToken(refreshToken);
     const accessToken = this._tokenManager.generateAccessToken({ userId });
@@ -51,8 +52,8 @@ class AuthenticationsHandler {
     this._validator.validateDeleteAuthenticationPayload(request.payload);
 
     const { refreshToken } = request.payload;
-    await this._authenticationsService.verifyToken(refreshToken);
-    await this._authenticationsService.deleteToken(refreshToken);
+
+    await this._authenticationsService.deleteRefreshToken(refreshToken);
 
     return {
       status: 'success',

@@ -1,17 +1,41 @@
+const { Pool } = require('pg');
+
 class PlaylistService {
-    // Method untuk mengambil data playlist berdasarkan ID
-    async getPlaylistById(playlistId) {
-      // Logika untuk mengambil data playlist dari database atau cache
-      const playlist = await db.query('SELECT * FROM playlists WHERE id = ?', [playlistId]);
-      return playlist[0]; // Mengembalikan hasil pertama (jika ada)
-    }
-  
-    // Method untuk mengecek apakah playlist ada di database
-    async verifyPlaylist(playlistId) {
-      const result = await db.query('SELECT COUNT(*) FROM playlists WHERE id = ?', [playlistId]);
-      return result[0]['COUNT(*)'] > 0; // Mengembalikan true jika playlist ada
-    }
+  constructor() {
+    this._pool = new Pool({
+      host: process.env.PGHOST,
+      user: process.env.PGUSER,
+      password: process.env.PGPASSWORD,
+      database: process.env.PGDATABASE,
+      port: Number(process.env.PGPORT || 5432),
+    });
   }
-  
-  module.exports = new PlaylistService();
-  
+
+  async getPlaylistWithSongs(playlistId) {
+    const playlistRes = await this._pool.query(
+      'SELECT id, name FROM playlists WHERE id = $1',
+      [playlistId]
+    );
+
+    if (!playlistRes.rowCount) {
+      throw new Error('Playlist tidak ditemukan');
+    }
+
+    const songsRes = await this._pool.query(
+      `SELECT s.id, s.title, s.performer
+       FROM songs s
+       JOIN playlistsongs ps ON ps.song_id = s.id
+       WHERE ps.playlist_id = $1
+       ORDER BY ps.created_at ASC`,
+      [playlistId]
+    );
+
+    return {
+      id: playlistRes.rows[0].id,
+      name: playlistRes.rows[0].name,
+      songs: songsRes.rows,
+    };
+  }
+}
+
+module.exports = PlaylistService;

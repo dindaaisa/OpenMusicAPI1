@@ -2,21 +2,41 @@ require('dotenv').config();
 const Hapi = require('@hapi/hapi');
 const Jwt = require('jsonwebtoken');
 const Path = require('path');
+const ClientError = require('./exceptions/ClientError');
 
-const ClientError = require('../exceptions/ClientError');
-
-// plugins & services
+/* PLUGINS */
 const AlbumsPlugin = require('./api/albums');
-const AlbumsService = require('./api/albums/service');
-const AlbumsValidator = require('./api/albums/validator');
-
+const SongsPlugin = require('./api/songs');
 const UsersPlugin = require('./api/users');
-const UsersService = require('./api/users/service');
-const UsersValidator = require('./api/users/validator');
+const AuthenticationsPlugin = require('./api/authentications');
+const PlaylistsPlugin = require('./api/playlist');
+const CollaborationsPlugin = require('./api/collaborations');
+const ExportsPlugin = require('./api/exports');
 
+/* SERVICES */
+const AlbumsService = require('./api/albums/service');
+const SongsService = require('./api/songs/service');
+const UsersService = require('./api/users/service');
+const AuthenticationsService = require('./api/authentications/service');
+const PlaylistsService = require('./api/playlist/service');
+const CollaborationsService = require('./api/collaborations/service');
+const ProducerService = require('./services/rabbitmq/ProducerService');
+const CacheService = require('./services/cacheService');
+
+/* VALIDATORS */
+const AlbumsValidator = require('./api/albums/validator');
+const SongsValidator = require('./api/songs/validator');
+const UsersValidator = require('./api/users/validator');
+const AuthenticationsValidator = require('./api/authentications/validator');
+const PlaylistsValidator = require('./api/playlist/validator');
+const CollaborationsValidator = require('./api/collaborations/validator');
+const ExportsValidator = require('./api/exports/validator');
+
+/* OTHERS */
+const TokenManager = require('./api/authentications/tokenManager');
+const CoverHandler = require('./api/albums/coverHandler');
 const AlbumLikesService = require('./api/albums/likesService');
 const LikesHandler = require('./api/albums/likesHandler');
-const CacheService = require('./services/cacheService');
 
 const init = async () => {
   const server = Hapi.server({
@@ -33,61 +53,122 @@ const init = async () => {
     handler: {
       directory: {
         path: Path.resolve(__dirname, 'uploads'),
-        index: false,
       },
     },
     options: { auth: false },
   });
 
-  // auth
+  /* JWT */
   server.auth.scheme('openmusic_jwt', () => ({
     authenticate: (request, h) => {
-      const authorization = request.headers.authorization;
-      if (!authorization) throw new ClientError('Missing authentication', 401);
+      const auth = request.headers.authorization;
+      if (!auth) throw new ClientError('Missing authentication', 401);
 
-      const [type, token] = authorization.split(' ');
+      const [type, token] = auth.split(' ');
       if (type !== 'Bearer') throw new ClientError('Invalid auth format', 401);
 
-      try {
-        const decoded = Jwt.verify(token, process.env.ACCESS_TOKEN_KEY);
-        return h.authenticated({ credentials: { id: decoded.userId } });
-      } catch {
-        throw new ClientError('Invalid token', 401);
-      }
+      const decoded = Jwt.verify(token, process.env.ACCESS_TOKEN_KEY);
+      return h.authenticated({ credentials: { id: decoded.userId } });
     },
   }));
 
   server.auth.strategy('openmusic_jwt', 'openmusic_jwt');
+  server.auth.default('openmusic_jwt');
 
-  // services
-  const albumsService = new AlbumsService();
-  const albumsValidator = new AlbumsValidator();
-
-  const albumLikesService = new AlbumLikesService();
+  /* INIT SERVICES */
   const cacheService = new CacheService();
-  const likesHandler = new LikesHandler({ albumLikesService, cacheService });
+  const albumsService = new AlbumsService();
+  const albumLikesService = new AlbumLikesService(cacheService);
 
+  const usersService = new UsersService();
+  const authenticationsService = new AuthenticationsService();
+
+  const collaborationsService = new CollaborationsService();
+  const playlistsService = new PlaylistsService(collaborationsService);
+
+  const producerService = new ProducerService(process.env.RABBITMQ_SERVER);
+
+  /* REGISTER */
   await server.register([
     {
-      plugin: AlbumsPlugin,
-      options: { service: albumsService, validator: albumsValidator, likesHandler },
+      plugin: AuthenticationsPlugin,
+      options: {
+        authenticationsService,
+        usersService,
+        tokenManager: TokenManager,
+        validator: new AuthenticationsValidator(),
+      },
     },
     {
       plugin: UsersPlugin,
-      options: { service: new UsersService(), validator: new UsersValidator() },
+      options: {
+        service: usersService,
+        validator: new UsersValidator(),
+      },
+    },
+    {
+      plugin: AlbumsPlugin,
+      options: {
+        service: albumsService,
+        validator: new AlbumsValidator(),
+        coverHandler: new CoverHandler({ albumService: albumsService }),
+        likesHandler: new LikesHandler({ albumLikesService, cacheService }),
+      },
+    },
+    {
+      plugin: SongsPlugin,
+      options: {
+        service: new SongsService(),
+        validator: new SongsValidator(),
+      },
+    },
+    {
+      plugin: CollaborationsPlugin,
+      options: {
+        service: collaborationsService,
+        validator: new CollaborationsValidator(),
+      },
+    },
+    {
+      plugin: PlaylistsPlugin,
+      options: {
+        service: playlistsService,
+        validator: new PlaylistsValidator(),
+      },
+    },
+    {
+      plugin: ExportsPlugin,
+      options: {
+        service: producerService,
+        validator: new ExportsValidator(),
+      },
     },
   ]);
 
+  /* ERROR HANDLER */
   server.ext('onPreResponse', (request, h) => {
     const { response } = request;
+
     if (response instanceof ClientError) {
-      return h.response({ status: 'fail', message: response.message }).code(response.statusCode);
+      return h.response({
+        status: 'fail',
+        message: response.message,
+      }).code(response.statusCode);
     }
+
+    if (response.isBoom) {
+      const statusCode = response.output.statusCode;
+      return h.response({
+        status: statusCode < 500 ? 'fail' : 'error',
+        message: response.output.payload.message,
+      }).code(statusCode);
+    }
+
     return h.continue;
   });
 
   await server.start();
-  console.log(`Server berjalan pada ${server.info.uri}`);
+  console.log(`Server berjalan di ${server.info.uri}`);
 };
 
 init();
