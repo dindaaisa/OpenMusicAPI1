@@ -12,6 +12,9 @@ class CoverHandler {
     const { id: albumId } = request.params;
     const { cover } = request.payload;
 
+    // Verify album exists before processing upload
+    await this._albumService.verifyAlbumExists(albumId);
+
     // Pastikan file ada di payload
     if (!cover || !cover.hapi) {
       return h.response({ status: 'fail', message: 'File cover tidak ditemukan' }).code(400);
@@ -25,9 +28,6 @@ class CoverHandler {
     if (!allowed.includes(contentType)) {
       return h.response({ status: 'fail', message: 'Tipe file bukan gambar' }).code(400);
     }
-
-    // Verify album exists before processing upload
-    await this._albumService.verifyAlbumExists(albumId);
 
     // Tentukan path direktori upload
     const uploadsDir = path.resolve(__dirname, '..', '..', 'uploads');
